@@ -46,7 +46,7 @@ class YoutubePlayerFlags {
 
   /// Enabling causes closed captions to be shown by default.
   ///
-  /// Default is true.
+  /// Default is false.
   final bool enableCaption;
 
   /// Specifies the default language that the player will use to display captions. Set the parameter's value to an [ISO 639-1 two-letter language code](http://www.loc.gov/standards/iso639-2/php/code_list.php).
@@ -79,6 +79,15 @@ class YoutubePlayerFlags {
   /// Default is true.
   final bool showLiveFullscreenButton;
 
+  /// Sets the player's interface language.
+  /// The parameter value is an [ISO 639-1 two-letter language code](https://www.loc.gov/standards/iso639-2/php/code_list.php) or a fully specified locale.
+  ///
+  /// For example, fr and fr-ca are both valid values. Other language input codes, such as IETF language tags (BCP 47) might also be handled properly.
+  ///
+  /// The interface language is used for tooltips in the player and also affects the default caption track.
+  /// Note that YouTube might select a different caption track language for a particular user based on the user's individual language preferences and the availability of caption tracks.
+  final String interfaceLanguage;
+
   /// Creates [YoutubePlayerFlags].
   const YoutubePlayerFlags({
     this.hideControls = false,
@@ -88,7 +97,7 @@ class YoutubePlayerFlags {
     this.isLive = false,
     this.hideThumbnail = false,
     this.disableDragSeek = false,
-    this.enableCaption = true,
+    this.enableCaption = false,
     this.captionLanguage = 'en',
     this.loop = false,
     this.forceHD = false,
@@ -96,6 +105,7 @@ class YoutubePlayerFlags {
     this.endAt,
     this.useHybridComposition = true,
     this.showLiveFullscreenButton = true,
+    this.interfaceLanguage = 'en',
   });
 
   /// Copies new values assigned to the [YoutubePlayerFlags].
