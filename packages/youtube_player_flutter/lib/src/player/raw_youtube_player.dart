@@ -227,45 +227,25 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
 
   String get player => '''
     <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <style>
-      html {
-        width: 100%;
-        height: 100%;
-        background-color: black;
-        pointer-events: <<pointerEvents>>;
-      }
-
-      body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        background-color: black;
-        pointer-events: inherit;
-      }
-
-      .embed-container iframe,
-      .embed-container object,
-      .embed-container embed {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100% !important;
-        height: 100% !important;
-        pointer-events: inherit;
-      }
-    </style>
-    <title>Youtube Player</title>
-  </head>
+    <html>
+    <head>
+        <style>
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000000;
+                overflow: hidden;
+                position: fixed;
+                height: 100%;
+                width: 100%;
+                pointer-events: none;
+            }
+        </style>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>
+    </head>
     <body>
-        <div class="embed-container">
-          <div id="player"></div>
-        </div>
+        <div id="player"></div>
         <script>
             var tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
@@ -277,7 +257,6 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
                 player = new YT.Player('player', {
                     height: '100%',
                     width: '100%',
-                    host: 'https://www.youtube.com',
                     videoId: '${controller!.initialVideoId}',
                     playerVars: {
                         'controls': 0,
@@ -292,44 +271,15 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
                         'cc_lang_pref': '${controller!.flags.captionLanguage}',
                         'autoplay': ${boolean(value: controller!.flags.autoPlay)},
                         'start': ${controller!.flags.startAt},
-                        'end': ${controller!.flags.endAt},
-                        'hl': '${controller!.flags.interfaceLanguage}'
+                        'end': ${controller!.flags.endAt}
                     },
-                  events: {
-                    onReady: function (event) {
-                      handleFullScreenForMobilePlatform();
-                      sendMessage('Ready', event);
+                    events: {
+                        onReady: function(event) { window.flutter_inappwebview.callHandler('Ready'); },
+                        onStateChange: function(event) { sendPlayerStateChange(event.data); },
+                        onPlaybackQualityChange: function(event) { window.flutter_inappwebview.callHandler('PlaybackQualityChange', event.data); },
+                        onPlaybackRateChange: function(event) { window.flutter_inappwebview.callHandler('PlaybackRateChange', event.data); },
+                        onError: function(error) { window.flutter_inappwebview.callHandler('Errors', error.data); }
                     },
-                    onStateChange: function (event) {
-                      clearTimeout(timerId);
-                      sendMessage('StateChange', event.data);
-                      if (event.data == 1) {
-                        timerId = setInterval(function () {
-                          var state = {
-                            'currentTime': player.getCurrentTime(),
-                            'loadedFraction': player.getVideoLoadedFraction()
-                          };
-
-                          sendMessage('VideoState', JSON.stringify(state));
-                        }, 100);
-                      }
-                    },
-                    onPlaybackQualityChange: function (event) {
-                      sendMessage('PlaybackQualityChange', event.data);
-                    },
-                    onPlaybackRateChange: function (event) {
-                      sendMessage('PlaybackRateChange', event.data);
-                    },
-                    onApiChange: function (event) {
-                      sendMessage('ApiChange', event.data);
-                    },
-                    onError: function (event) {
-                      sendMessage('PlayerError', event.data);
-                    },
-                    onAutoplayBlocked: function (event) {
-                      sendMessage('AutoplayBlocked', event.data);
-                    },
-                  },
                 });
             }
 
