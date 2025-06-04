@@ -227,25 +227,45 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
 
   String get player => '''
     <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            html,
-            body {
-                margin: 0;
-                padding: 0;
-                background-color: #000000;
-                overflow: hidden;
-                position: fixed;
-                height: 100%;
-                width: 100%;
-                pointer-events: none;
-            }
-        </style>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>
-    </head>
+<html lang="en">
+  <head>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <style>
+      html {
+        width: 100%;
+        height: 100%;
+        background-color: black;
+        pointer-events: <<pointerEvents>>;
+      }
+
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background-color: black;
+        pointer-events: inherit;
+      }
+
+      .embed-container iframe,
+      .embed-container object,
+      .embed-container embed {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        pointer-events: inherit;
+      }
+    </style>
+    <title>Youtube Player</title>
+  </head>
     <body>
-        <div id="player"></div>
+        <div class="embed-container">
+          <div id="player"></div>
+        </div>
         <script>
             var tag = document.createElement('script');
             tag.src = "https://www.youtube.com/iframe_api";
@@ -257,6 +277,7 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
                 player = new YT.Player('player', {
                     height: '100%',
                     width: '100%',
+                    host: 'https://www.youtube.com',
                     videoId: '${controller!.initialVideoId}',
                     playerVars: {
                         'controls': 0,
@@ -274,108 +295,125 @@ class _RawYoutubePlayerState extends State<RawYoutubePlayer>
                         'end': ${controller!.flags.endAt},
                         'hl': '${controller!.flags.interfaceLanguage}'
                     },
-                    events: {
-                        onReady: function(event) { window.flutter_inappwebview.callHandler('Ready'); },
-                        onStateChange: function(event) { sendPlayerStateChange(event.data); },
-                        onPlaybackQualityChange: function(event) { window.flutter_inappwebview.callHandler('PlaybackQualityChange', event.data); },
-                        onPlaybackRateChange: function(event) { window.flutter_inappwebview.callHandler('PlaybackRateChange', event.data); },
-                        onError: function(error) { window.flutter_inappwebview.callHandler('Errors', error.data); }
+                  events: {
+                    onReady: function (event) {
+                      handleFullScreenForMobilePlatform();
+                      sendMessage('Ready', event);
                     },
+                    onStateChange: function (event) {
+                      clearTimeout(timerId);
+                      sendMessage('StateChange', event.data);
+                      if (event.data == 1) {
+                        timerId = setInterval(function () {
+                          var state = {
+                            'currentTime': player.getCurrentTime(),
+                            'loadedFraction': player.getVideoLoadedFraction()
+                          };
+
+                          sendMessage('VideoState', JSON.stringify(state));
+                        }, 100);
+                      }
+                    },
+                    onPlaybackQualityChange: function (event) {
+                      sendMessage('PlaybackQualityChange', event.data);
+                    },
+                    onPlaybackRateChange: function (event) {
+                      sendMessage('PlaybackRateChange', event.data);
+                    },
+                    onApiChange: function (event) {
+                      sendMessage('ApiChange', event.data);
+                    },
+                    onError: function (event) {
+                      sendMessage('PlayerError', event.data);
+                    },
+                    onAutoplayBlocked: function (event) {
+                      sendMessage('AutoplayBlocked', event.data);
+                    },
+                  },
                 });
             }
+  window.addEventListener('message', (event) => {
+        try {
+          var data = JSON.parse(event.data);
 
-            function sendPlayerStateChange(playerState) {
-                clearTimeout(timerId);
-                window.flutter_inappwebview.callHandler('StateChange', playerState);
-                if (playerState == 1) {
-                    startSendCurrentTimeInterval();
-                    sendVideoData(player);
-                }
-            }
+          if(data.function){
+            var rawFunction = data.function.replaceAll('<<quote>>', '"');
+            var result = eval(rawFunction);
 
-            function sendVideoData(player) {
-                var videoData = {
-                    'duration': player.getDuration(),
-                    'title': player.getVideoData().title,
-                    'author': player.getVideoData().author,
-                    'videoId': player.getVideoData().video_id
-                };
-                window.flutter_inappwebview.callHandler('VideoData', videoData);
-            }
+            if(data.key) {
+              var message = {}
+              message[data.key] = result
+              var messageString = JSON.stringify(message);
 
-            function startSendCurrentTimeInterval() {
-                timerId = setInterval(function () {
-                    window.flutter_inappwebview.callHandler('VideoTime', player.getCurrentTime(), player.getVideoLoadedFraction());
-                }, 100);
+              event.source.postMessage(messageString , '*');
             }
+          }
+        } catch (e) { }
+      }, false);
 
-            function play() {
-                player.playVideo();
-                return '';
-            }
+      window.onresize = function () {
+        player.setSize(window.innerWidth, window.innerHeight);
+      };
 
-            function pause() {
-                player.pauseVideo();
-                return '';
-            }
+      function sendPlatformMessage(message) {
+        switch(platform) {
+           case 'android':
+             <<playerId>>.postMessage(message);
+             break;
+           case 'ios':
+             <<playerId>>.postMessage(message, '*');
+             break;
+           case 'web':
+             window.parent.postMessage(message, '*');
+             break;
+         }
+      }
 
-            function loadById(loadSettings) {
-                player.loadVideoById(loadSettings);
-                return '';
-            }
+      function sendMessage(key, data) {
+         var message = {};
+         message[key] = data;
+         message['playerId'] = '<<playerId>>';
+         var messageString = JSON.stringify(message);
 
-            function cueById(cueSettings) {
-                player.cueVideoById(cueSettings);
-                return '';
-            }
+         sendPlatformMessage(messageString);
+      }
 
-            function loadPlaylist(playlist, index, startAt) {
-                player.loadPlaylist(playlist, 'playlist', index, startAt);
-                return '';
-            }
+      function getVideoData() {
+        return prepareDataForPlatform(player.getVideoData());
+      }
 
-            function cuePlaylist(playlist, index, startAt) {
-                player.cuePlaylist(playlist, 'playlist', index, startAt);
-                return '';
-            }
+      function getPlaylist() {
+        return prepareDataForPlatform(player.getPlaylist());
+      }
 
-            function mute() {
-                player.mute();
-                return '';
-            }
+      function getAvailablePlaybackRates(){
+        return prepareDataForPlatform(player.getAvailablePlaybackRates());
+      }
 
-            function unMute() {
-                player.unMute();
-                return '';
-            }
+      function prepareDataForPlatform(data) {
+        if(platform == 'android') return data;
 
-            function setVolume(volume) {
-                player.setVolume(volume);
-                return '';
-            }
+        return JSON.stringify(data);
+      }
 
-            function seekTo(position, seekAhead) {
-                player.seekTo(position, seekAhead);
-                return '';
-            }
+      function handleFullScreenForMobilePlatform() {
+        if(platform != 'web') {
+          var ytFrame = document.getElementsByTagName('iframe')[0].contentWindow.document;
+          var fsButton = ytFrame.getElementsByClassName('ytp-fullscreen-button ytp-button')[0];
 
-            function setSize(width, height) {
-                player.setSize(width, height);
-                return '';
-            }
+          if(fsButton != null) {
+            var fsButtonCopy = fsButton.cloneNode(true);
+            fsButton.replaceWith(fsButtonCopy);
+            fsButtonCopy.onclick = function() {
+              sendMessage('FullscreenButtonPressed', '');
+            };
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
 
-            function setPlaybackRate(rate) {
-                player.setPlaybackRate(rate);
-                return '';
-            }
-
-            function setTopMargin(margin) {
-                document.getElementById("player").style.marginTop = margin;
-                return '';
-            }
-        </script>
-    </body>
-    </html>
   ''';
 
   String boolean({required bool value}) => value == true ? "'1'" : "'0'";
